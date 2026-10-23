@@ -1,0 +1,422 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CLIENT_REGIONAL
+  CLIENT_HEAD_OFFICE
+  PRINTORIA_SALES
+  PRINTORIA_OPS
+  PRINTORIA_ADMIN
+}
+
+enum OrderStatus {
+  SUBMITTED
+  RETURNED_FOR_CLARIFICATION
+  REJECTED
+  QUOTATION_IN_PROGRESS
+  QUOTATION_SUBMITTED
+  REVISION_REQUESTED
+  AWAITING_PO
+  PO_RECEIVED
+  ORDER_CONFIRMED
+  IN_PRODUCTION
+  QUALITY_CHECK
+  DISPATCHED
+  DELIVERED_CLOSED
+  CANCELLED
+}
+
+enum QuotationStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  REVISION_REQUESTED
+}
+
+model Client {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  registeredName    String?
+  code              String
+  status            String   @default("ACTIVE")
+  industry          String?
+  clientSince       DateTime? @db.Date
+  website           String?
+  businessEmail     String?
+  phone             String?
+  gstin             String?
+  pan               String?
+  cin               String?
+  paymentTerms      String?
+  registeredAddress String?
+  city              String?
+  state             String?
+  pincode           String?
+  billingAddress    String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+
+  regions Region[]
+  users   User[]
+  orders  Order[]
+  contacts ClientContact[]
+  prefs    ClientNotificationPrefs?
+
+  @@index([code])
+  @@map("clients")
+}
+
+model Region {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId     String   @db.Uuid
+  name         String
+  code         String
+  city         String?
+  managerName  String?
+  managerEmail String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  client Client @relation(fields: [clientId], references: [id])
+  users  User[]
+  orders Order[]
+
+  @@index([clientId])
+  @@map("regions")
+}
+
+model User {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId     String?   @db.Uuid
+  regionId     String?   @db.Uuid
+  role         UserRole
+  email        String
+  passwordHash String
+  fullName     String
+  phone        String?
+  pricingView  Boolean   @default(false)
+  status       String    @default("ACTIVE")
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  client        Client?           @relation(fields: [clientId], references: [id])
+  region        Region?           @relation(fields: [regionId], references: [id])
+  ordersCreated Order[]           @relation("CreatedOrders")
+  refreshTokens RefreshToken[]
+  authTokens    AuthToken[]
+  audits        AuditRecord[]
+  notifications NotificationLog[]
+
+  @@index([email])
+  @@index([clientId])
+  @@index([regionId])
+  @@map("users")
+}
+
+model Order {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderNumber        String
+  clientId           String       @db.Uuid
+  regionId           String       @db.Uuid
+  createdById        String       @db.Uuid
+  title              String
+  status             OrderStatus  @default(SUBMITTED)
+  statusEnteredAt    DateTime     @default(now())
+  itemName           String?
+  quantity           Decimal?     @db.Decimal(14, 3)
+  unit               String?
+  requestedDeliveryDate DateTime? @db.Date
+  cancellation       Json?
+  closedAt           DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  deletedAt          DateTime?
+
+  client         Client               @relation(fields: [clientId], references: [id])
+  region         Region               @relation(fields: [regionId], references: [id])
+  createdBy      User                 @relation("CreatedOrders", fields: [createdById], references: [id])
+  requirementVersions RequirementVersion[]
+  quotations          Quotation[]
+  purchaseOrders      PurchaseOrder[]
+  statusLogs          OrderStatusLog[]
+  notifications       NotificationLog[]
+
+  @@unique([orderNumber])
+  @@index([clientId, regionId])
+  @@index([status])
+  @@map("orders")
+}
+
+model RequirementVersion {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId               String   @db.Uuid
+  version               Int
+  itemName              String
+  specification         String
+  quantity              Decimal  @db.Decimal(14, 3)
+  unit                  String
+  requestedDeliveryDate DateTime @db.Date
+  notes                 String?
+  submittedById         String   @db.Uuid
+  submittedAt           DateTime @default(now())
+  createdAt             DateTime @default(now())
+  deletedAt             DateTime?
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@unique([orderId, version])
+  @@map("requirement_versions")
+}
+
+model Quotation {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId        String          @db.Uuid
+  version        Int
+  quotationRef   String
+  currency       String          @default("INR")
+  subTotal       Decimal?        @db.Decimal(14, 2)
+  taxAmount      Decimal?        @db.Decimal(14, 2)
+  totalAmount    Decimal?        @db.Decimal(14, 2)
+  paymentTerms   String?
+  deliveryTerms  String?
+  validityDate   DateTime?       @db.Date
+  status         QuotationStatus @default(DRAFT)
+  submittedById  String?         @db.Uuid
+  submittedAt    DateTime?
+  decision       Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  order Order           @relation(fields: [orderId], references: [id])
+  items QuotationItem[]
+
+  @@unique([orderId, version])
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quotationId  String  @db.Uuid
+  description  String
+  specification String?
+  quantity     Decimal @db.Decimal(14, 3)
+  unit         String
+  unitRate     Decimal @db.Decimal(14, 2)
+  taxRatePct   Decimal @db.Decimal(5, 2)
+  amount       Decimal @db.Decimal(14, 2)
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@map("quotation_items")
+}
+
+model PurchaseOrder {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId              String   @db.Uuid
+  poNumber             String
+  poDate               DateTime @db.Date
+  poItems              Json
+  currency             String   @default("INR")
+  poTotal              Decimal  @db.Decimal(14, 2)
+  taxTotal             Decimal? @db.Decimal(14, 2)
+  paymentTerms         String?
+  expectedDeliveryDate DateTime? @db.Date
+  externalRef          String?
+  status               String   @default("PENDING_VERIFICATION")
+  verification         Json?
+  uploadedById         String   @db.Uuid
+  uploadedAt           DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  deletedAt            DateTime?
+
+  order  Order         @relation(fields: [orderId], references: [id])
+  checks PoCheckItem[]
+
+  @@map("purchase_orders")
+}
+
+model PoCheckItem {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  poId       String  @db.Uuid
+  checkKey   String
+  checkLabel String
+  expected   String?
+  actual     String?
+  matched    Boolean?
+  remark     String?
+
+  po PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@unique([poId, checkKey])
+  @@map("po_check_items")
+}
+
+model OrderStatusLog {
+  id        BigInt       @id @default(autoincrement())
+  orderId   String       @db.Uuid
+  fromStatus OrderStatus?
+  toStatus  OrderStatus
+  action    String
+  actorId   String       @db.Uuid
+  actorRole UserRole
+  reason    String?
+  comment   String?
+  metadata  Json?
+  createdAt DateTime     @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@map("order_status_log")
+}
+
+model AuditRecord {
+  id         BigInt   @id @default(autoincrement())
+  actorId    String?  @db.Uuid
+  entityType String
+  entityId   String
+  action     String
+  before     Json?
+  after      Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@map("audit_records")
+}
+
+model File {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityType   String
+  entityId     String?
+  kind         String
+  originalName String
+  s3Key        String
+  mime         String
+  sizeBytes    Int
+  checksum     String?
+  scanStatus   String   @default("PENDING")
+  uploadedById String   @db.Uuid
+  createdAt    DateTime @default(now())
+  deletedAt    DateTime?
+
+  @@unique([s3Key])
+  @@map("files")
+}
+
+model NotificationLog {
+  id          BigInt    @id @default(autoincrement())
+  orderId     String?   @db.Uuid
+  recipientId String    @db.Uuid
+  channel     String
+  templateKey String
+  toAddress   String?
+  toPhone     String?
+  status      String    @default("QUEUED")
+  attempts    Int       @default(0)
+  lastError   String?
+  payload     Json?
+  queuedAt    DateTime  @default(now())
+  sentAt      DateTime?
+
+  order     Order? @relation(fields: [orderId], references: [id])
+  recipient User   @relation(fields: [recipientId], references: [id])
+
+  @@index([orderId])
+  @@index([recipientId])
+  @@map("notification_log")
+}
+
+model RefreshToken {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @db.Uuid
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  replacedById String?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model AuthToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @db.Uuid
+  purpose   String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, purpose])
+  @@map("auth_tokens")
+}
+
+model Setting {
+  key        String   @id
+  value      Json
+  updatedById String? @db.Uuid
+  updatedAt  DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model ClientContact {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId  String   @db.Uuid
+  name      String
+  roleName  String?
+  email     String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@index([clientId])
+  @@map("client_contacts")
+}
+
+model ClientNotificationPrefs {
+  clientId              String   @id @db.Uuid
+  emailAlerts           Boolean  @default(true)
+  whatsappAlerts        Boolean  @default(true)
+  dailyPendingReminder  Boolean  @default(true)
+  updatedById           String?  @db.Uuid
+  updatedAt             DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@map("client_notification_prefs")
+}
+
+model OrderNumberSequence {
+  name      String @id
+  lastValue Int    @default(1000)
+
+  @@map("order_number_sequence")
+}

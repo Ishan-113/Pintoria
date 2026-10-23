@@ -1,0 +1,10 @@
+{
+  "rootDir": "..",
+  "testRegex": "test/.*\\.e2e-spec\\.ts$",
+  "preset": "ts-jest",
+  "testEnvironment": "node",
+  "testTimeout": 60000,
+  "moduleNameMapper": {
+    "^@pintoria/shared$": "<rootDir>/../../packages/shared/src/index.ts"
+  }
+}
