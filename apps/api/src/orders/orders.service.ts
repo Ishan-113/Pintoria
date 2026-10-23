@@ -6,10 +6,10 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { hasPermission } from '@pintoria/shared';
-import type { OrderStatus } from '@pintoria/shared';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { SessionUser } from '../auth/auth.types';
+import { buildOrderWhere } from './order-filters';
 import { OrderNumberingService } from './order-numbering.service';
 import { OrderScopeService } from './order-scope.service';
 import { OrderTransitionsService, type TransitionOptions } from './order-transitions.service';
@@ -89,30 +89,7 @@ export class OrdersService {
   async list(user: SessionUser, q: ListOrdersDto) {
     const page = q.page ?? 1;
     const pageSize = q.pageSize ?? 20;
-    const where: Prisma.OrderWhereInput = {
-      ...this.scope.whereFor(user),
-      deletedAt: null,
-    };
-    if (q.status) {
-      const statuses = q.status
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s): s is OrderStatus => s.length > 0);
-      if (statuses.length > 0) where.status = { in: statuses };
-    }
-    if (q.clientId) where.clientId = q.clientId;
-    if (q.regionId) where.regionId = q.regionId;
-    if (q.dateFrom || q.dateTo) {
-      where.createdAt = {
-        gte: q.dateFrom ? new Date(q.dateFrom) : undefined,
-        lte: q.dateTo ? new Date(q.dateTo) : undefined,
-      };
-    }
-    if (q.search) {
-      where.OR = ['title', 'orderNumber', 'itemName'].map((field) => ({
-        [field]: { contains: q.search, mode: 'insensitive' as const },
-      }));
-    }
+    const where: Prisma.OrderWhereInput = buildOrderWhere(this.scope, user, q);
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.order.count({ where }),
       this.prisma.order.findMany({

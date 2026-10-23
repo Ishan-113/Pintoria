@@ -435,3 +435,16 @@ export const updatePrefs = (dto: Partial<Pick<Prefs, 'emailAlerts' | 'whatsappAl
   api<Prefs>('PUT', '/notifications/prefs', dto);
 export const runRemindersNow = () =>
   api<{ digestsSent: number; remindersSent: number }>('POST', '/notifications/reminders/run', {});
+
+/** Order report export — CSV with the same filters as the list view. */
+export function exportOrdersCsv(
+  filters: { status?: string; search?: string },
+  onFail: (message: string) => void,
+): void {
+  const qs = new URLSearchParams();
+  if (filters.status) qs.set('status', filters.status);
+  if (filters.search) qs.set('search', filters.search);
+  qs.set('format', 'csv');
+  const date = new Date().toISOString().slice(0, 10);
+  void apiDownload(`/reports/orders?${qs.toString()}`, `pintoria-orders-${date}.csv`, onFail);
+}

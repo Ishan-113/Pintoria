@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ORDER_STATUS_LABELS, ORDER_STATUSES } from '@pintoria/shared';
 import * as api from '../api/endpoints';
 import { useSession } from '../auth/session';
-import { Empty, ErrBanner, Field, StatusChip } from '../components/ui';
+import { Empty, ErrBanner, Field, StatusChip, Banner } from '../components/ui';
 
 export function OrdersList() {
   const { user } = useSession();
@@ -11,6 +11,7 @@ export function OrdersList() {
   const [data, setData] = useState<api.OrderPage | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
+  const [csvError, setCsvError] = useState('');
 
   const status = params.get('status') ?? '';
   const search = params.get('q') ?? '';
@@ -69,9 +70,20 @@ export function OrdersList() {
             ))}
           </select>
         </Field>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            setCsvError('');
+            api.exportOrdersCsv({ status: status || undefined, search: search || undefined }, setCsvError);
+          }}
+        >
+          Export CSV
+        </button>
       </div>
 
       <ErrBanner error={error} />
+      {csvError && <Banner kind="error">{csvError}</Banner>}
       {loading && <p className="muted">Loading…</p>}
 
       {data && (

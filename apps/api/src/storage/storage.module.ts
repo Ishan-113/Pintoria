@@ -1,6 +1,7 @@
 import { Module, Provider } from '@nestjs/common';
 import { getValidatedEnv } from '../config/env.validation';
-import { LocalDiskStorageService, R2StorageService } from './local-disk-storage.service';
+import { LocalDiskStorageService } from './local-disk-storage.service';
+import { R2StorageService } from './r2-storage.service';
 import { STORAGE_PROVIDER } from './storage-provider';
 
 const driverProvider: Provider = {

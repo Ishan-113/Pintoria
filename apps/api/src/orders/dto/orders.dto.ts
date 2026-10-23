@@ -208,4 +208,8 @@ export class ListOrdersDto {
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100)
   pageSize?: number;
+
+  /** Export hint for GET /reports/orders — only 'csv' is supported. */
+  @IsOptional() @IsIn(['csv'])
+  format?: 'csv';
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotImplementedException, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -63,20 +63,6 @@ export class LocalDiskStorageService implements StorageProvider {
     } catch {
       // already gone — removal stays idempotent
     }
-  }
-}
-
-/** Placeholder for the R2/S3 production driver (needs the four R2 env vars). */
-@Injectable()
-export class R2StorageService implements StorageProvider {
-  put(): Promise<StoragePutResult> {
-    throw new NotImplementedException('R2 storage driver is not wired up yet (needs @aws-sdk + bucket).');
-  }
-  get(): Promise<Buffer> {
-    throw new NotImplementedException('R2 storage driver is not wired up yet.');
-  }
-  remove(): Promise<void> {
-    throw new NotImplementedException('R2 storage driver is not wired up yet.');
   }
 }
 

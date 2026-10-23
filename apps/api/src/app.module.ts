@@ -16,6 +16,7 @@ import { OrdersModule } from './orders/orders.module';
 import { FilesModule } from './files/files.module';
 import { StorageModule } from './storage/storage.module';
 import { RemindersModule } from './reminders/reminders.module';
+import { ReportsModule } from './reports/reports.module';
 
 import { AppController } from './app.controller';
 import { JwtAuthGuard, PermissionsGuard } from './common/guards';
@@ -40,6 +41,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     StorageModule,
     FilesModule,
     RemindersModule,
+    ReportsModule,
     AdminModule,
     DashboardModule,
     AuthModule,
